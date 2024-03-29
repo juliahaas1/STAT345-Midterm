@@ -1,0 +1,172 @@
+---
+title: "STAT 345 Midterm Project"
+font: 12pt
+date: "Due March 29"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+Produce a graphic displaying the shot locations for a particular team over several years. 
+```{r, include=FALSE}
+#download nessesary packages
+library(nbastatR)
+library(dplyr)
+library(png)
+library(ggplot2)
+library(grid)
+library(gganimate)
+library(magick)
+library(tidyverse)
+library(gridExtra)
+library(ggExtra)
+Sys.setenv(VROOM_CONNECTION_SIZE = "262144")
+```
+
+```{r, warning=FALSE, fig.width=10,fig.height=5, echo=FALSE}
+#make tibbles with shot information for each year/season
+#data retrieved from nbastatR package
+shots.2013<-teams_shots(teams = "Phoenix Suns",seasons = 2013, return_message = FALSE)
+shots.2014<-teams_shots(teams = "Phoenix Suns",seasons = 2014, return_message = FALSE)
+shots.2015<-teams_shots(teams = "Phoenix Suns",seasons = 2015, return_message = FALSE)
+shots.2016<-teams_shots(teams = "Phoenix Suns",seasons = 2016, return_message = FALSE)
+shots.2017<-teams_shots(teams = "Phoenix Suns",seasons = 2017, return_message = FALSE)
+shots.2018<-teams_shots(teams = "Phoenix Suns",seasons = 2018, return_message = FALSE)
+shots.2019<-teams_shots(teams = "Phoenix Suns",seasons = 2019, return_message = FALSE)
+shots.2020<-teams_shots(teams = "Phoenix Suns",seasons = 2020, return_message = FALSE)
+shots.2021<-teams_shots(teams = "Phoenix Suns",seasons = 2021, return_message = FALSE)
+shots.2022<-teams_shots(teams = "Phoenix Suns",seasons = 2022, return_message = FALSE)
+shots.2023<-teams_shots(teams = "Phoenix Suns",seasons = 2023, return_message = FALSE)
+
+#combine all the shot tibbles for each year/season into one large tibble
+#select season, location of each shot, and if the shot was made from data to make a tibble with only nessesary information 
+shots<-bind_rows(shots.2013,shots.2014,shots.2015,shots.2016,shots.2017,shots.2018,shots.2019,shots.2020,shots.2021,shots.2022,shots.2023) %>%
+  select(yearSeason, slugSeason, locationX, locationY, isShotMade, minutesRemaining)
+
+#graph the shots using location x and location y given for each year
+#add basketball court with accurate NBA dimensions and convert to black and white
+#image sourced from: https://www.dimensions.com/element/basketball-court 
+
+court <- image_read("fullcourt3.png") %>%
+  image_convert(type = 'Grayscale')
+
+#graph plots for each basketball season using facet_wrap() function
+p<- ggplot(shots, aes(locationX,locationY)) + annotation_custom(rasterGrob(court), ymin=-25, ymax=850,xmin=-400,xmax=400) + geom_point(aes(color=isShotMade), alpha=.25,size=.6) + scale_color_manual(values = c("#FFCD00", "#E56020"))+ coord_fixed() + facet_wrap(~slugSeason, nrow=2, ncol=6) + theme_classic()  + theme(axis.line=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank(), axis.ticks=element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank()) + labs(title = "Phoenix Suns Shots by Season", color = "Made Shot") + guides(color = guide_legend(override.aes = list(size = 10)))
+p
+```
+
+```{r, echo=FALSE, warning=FALSE, fig.with=3, fig.height=3}
+#animate plots to show differences between seasons using transition_states()
+ggplot(shots, aes(locationX,locationY)) + annotation_custom(rasterGrob(court), ymin=-25, ymax=850,xmin=-400,xmax=400) + geom_point(aes(color=isShotMade), alpha=.15,size=.8) + scale_color_manual(values = c("#FFCD00", "#E56020"))+ coord_fixed() + theme_classic()  + theme(axis.line=element_blank(),axis.text.x=element_blank(),axis.text.y=element_blank(), axis.ticks=element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank()) + transition_states(slugSeason, transition_length = 0) + labs(title = "Phoenix Suns Shots Season: {closest_state}", color = "Scored Shot") + guides(color = guide_legend(override.aes = list(size = 10)))
+
+#I chose to include both faceted plots and the animation of plots because I thought that both contributed to an understanding of shot distribution throughout the years. 
+```
+
+- Through the plots we can see an overall shift in shot distribution from season to season, where the distribution transitions from all throughout the area of the 3 point line to a clear distinction between 3 point line shots, and shots inside the "key". 
+
+```{r, warning=FALSE, echo=FALSE, fig.width=3,fig.height=3}
+#make vectors for number of shots and years, cbind together
+shot.count<-as.numeric(c(nrow(shots.2013), nrow(shots.2014), nrow(shots.2015), nrow(shots.2016), nrow(shots.2017), nrow(shots.2018), nrow(shots.2019), nrow(shots.2020),nrow(shots.2021), nrow(shots.2022), nrow(shots.2023)))
+years<-c("2013-14","2014-15","2015-16","2016-17","2017-18","2018-19","2019-20","2020-21","2021-22","2022-23")
+num.of.shots<-cbind(years,shot.count)
+
+#bar plot to visualize any differences 
+shot.count.plot<-ggplot(num.of.shots, aes(years,as.numeric(shot.count))) + geom_col(fill="#CB6F2B") +ylim(0, max(shot.count)) + labs(title="Number of Shots Attempted Per Season", x="Season", y="Number of Shots Attempted") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r, echo=FALSE, warning=FALSE, fig.with=3, fig.height=3}
+#plot for shots attempted with less than 1 minute remaining for years 2012-2023 
+min.remaining<-shots %>%
+  filter(minutesRemaining<1) %>% 
+ggplot(aes(locationX,locationY)) + annotation_custom(rasterGrob(court), ymin=-25, ymax=850,xmin=-400,xmax=400) + geom_point(aes(color=isShotMade), alpha=.5,size=.8) + scale_color_manual(values = c("#FFCD00", "#E56020"))+ coord_fixed()+ theme_classic()  + theme(axis.line=element_blank(),axis.text.x=element_blank(),axis.text.y=element_blank(), axis.ticks=element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank()) + labs(title = "Phoenix Suns Shots with Less than One Minute Left in Play",subtitle= "Seasons: 2012-13 through 2022-23", color = "Made Shot") + guides(color = guide_legend(override.aes = list(size = 10)))
+
+grid.arrange(shot.count.plot,min.remaining, ncol=2, widths = c(.5,.5), padding = unit(0.9))
+```
+
+- Generally, most shots that are attempted on the opponents side are missed, and most of those shots are taken when there is less than 1 minute left in the game. 
+
+- Shots attempted per season does have significant changes from season to season, especially for seasons 2020-21 and 2021-22 compared to all other seasons. Along with that, 471 more shots were made in 2023 compared to 2013. 
+
+
+For the Phoenix Suns over the 2012-13 to 2022-23 seasons, shots are more spread throughout the inside of 3 point line arch in the earlier seasons, and there is a trend of less and less spread as seasons get more recent. Instead, there is a higher concentration of shots being taken at the 3 point line, or inside the "key". By the 2022-23 season there seems to be a clear gap where shots are not being taken. This is most likely an intentional shift where players are focusing more on either attempting higher value shots, or getting closer to the hoop for better chances of making it in. Comparing 2012-23 to 2022-23, it is very clear that there is a difference in shot placement, and 2022-23 seems to have the highest contrast in with 2012-13 in terms of shot distribution.
+
+Looking at the plot of shots attempted for all seasons when the game had less than 1 minute left, we can see a much higher proportion of shots being taken in the opponents side of the court compared to an overall shot distribution from any one season. From the plot we can see that almost all of the shots attempted past mid range and on opponents side of the court are missed shots, most likely last attempts to get a basket when there wasn't enough time to move closer to the net. 
+
+When analyzing the bar plot for the number of shots for each of the 10 listed seasons, we can see a few things. There seems to be a large dip in shot count for the 2020-21 and 2021-22 seasons which is most likely due to game cancellations because of the Covid-19 Pandemic. Besides that, we can see that overall shots seem to be increasing slightly as the seasons become more recent, and comparing 2022-23 to 2012-13, 471 more shots were made in 2022-23. The difference in the bar plots may not seem large, but overall this is a significant increase in shots. 
+
+ 
+How does contract compensation compare to player performance? 
+```{r, fig.with=14, warning=FALSE, echo=FALSE}
+library(nbastatR)
+
+#Contract info for 2023-2024 season
+sal<-hoopshype_salaries(return_message = FALSE) %>%
+  filter(urlTeamSalaryHoopsHype=="https://hoopshype.com/salaries/phoenix_suns/")
+sal<-sal %>%
+  filter(slugSeason=="2023-24") 
+  contract<-sal$amountContract[sal$namePlayer %in% c("Kevin Durant", "Thaddeus Young")]
+  print("Kevin Durant 2023-2024 Contract Amount: $47,649,433")
+  print("Thaddeus Young 2023-2024 Contract Amount: $1,010,371")
+
+#what did Kevin Durant's 2022-2023 season shots look like?
+kevin.shots<-shots.2023 %>%
+  filter(idPlayer=="201142")
+
+#plot datapoints against court image
+kev.plot<- ggplot(kevin.shots, aes(locationX,locationY)) + annotation_custom(rasterGrob(court),  ymin=-35, ymax=800,xmin=-400,xmax=400) + geom_point(aes(color=isShotMade), alpha=.55,size=2.8) + scale_color_manual(values = c("#FFCD00", "#E56020"))+ coord_fixed() + theme_classic()  + theme(axis.line=element_blank(),axis.text.x=element_blank(),axis.text.y=element_blank(), axis.ticks=element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank()) + labs(title = "Kevin Durant Shots: 2022-2023 Season", color = "Made Shot")
+
+#Thaddeus Young did not play for the Phoenix Suns during the 2022-2023 season, so we will have to retrieve his data from "Toronto Raptors" team_shots tibble
+thad.2023<-teams_shots(teams = "Toronto Raptors",seasons = 2023, return_message = FALSE)
+
+#filter for data relating to only Thaddeus Young
+thad.shots<-thad.2023 %>%
+  filter(namePlayer=="Thaddeus Young")
+
+#plot datapoints against court image
+thad.plot<- ggplot(thad.shots, aes(locationX,locationY)) + annotation_custom(rasterGrob(court),  ymin=-25, ymax=850,xmin=-400,xmax=400) + geom_point(aes(color=isShotMade), alpha=.55,size=2.8) + scale_color_manual(values = c("#FFCD00", "#E56020"))+ coord_fixed() + theme_classic()  + theme(axis.line=element_blank(),axis.text.x=element_blank(),axis.text.y=element_blank(), axis.ticks=element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank()) + labs(title = "Thaddeus Young Shots: 2022-2023 Season", color = "Made Shot")
+
+#plots side by side
+grid.arrange(kev.plot, thad.plot, ncol = 2, widths = c(0.8, 0.8))
+```
+
+To investigate this question I compared Kevin Durant, the highest contracted player for the 2023-2024 season with Thaddeus Young, who is contracted about 13% of what Kevin Durant is contracted. Durant and Young both entered the NBA world around the same time, both playing for multiple different teams throughout their careers. 
+
+- Comparing shots for 2022-2023, Kevin Durant seems to be making more shots overall, all over the court. Young's shots seem to be specific to the center 3 point line, far left and right 3 point line, and near the hoop. His most successful shots are close to the hoop, low scoring points. 
+
+
+```{r, warning=FALSE, fig.width=10, echo=FALSE}
+
+#get career data about Kevin Durant and Thaddeus Young
+#unfortunately, even after including return_message=FALSE, text still prints 
+career.data<-players_careers(players=c("Kevin Durant","Thaddeus Young"),return_message = FALSE )
+
+#get rid of unneeded information
+#keep Season, name of player, field goals made totals, field goals attempted total, percentage of field goals made, minutes played total, points total, and assists total for possible analysis.
+kev.thad.data<-dataPlayerSeasonTotalsPostSeason %>%
+  select(slugSeason, namePlayer, fgmTotals, fgaTotals, pctFG, minutesTotals, ptsTotals, astTotals)
+
+#Percent of Field goals made each season
+fgm.plot<- ggplot(kev.thad.data, aes(slugSeason, pctFG, fill=namePlayer)) + geom_col(position = position_dodge2(preserve = "single"))  + scale_fill_manual(values=c("orange2", "maroon4")) + scale_y_continuous(limits=c(0:1), labels = scales::label_percent()) + labs(title = "Field Goal Percentage by Season", x = "Regular Season", y = "Field Goal Made Percentage", fill="Player") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+#Minutes total played each season
+min.played<- ggplot(kev.thad.data, aes(slugSeason, minutesTotals, fill=namePlayer)) + geom_col(position = position_dodge2(preserve = "single"))  + scale_fill_manual(values=c("orange2", "maroon4")) + labs(title = "Minutes Played Each Season", x = "Regular Season", y = "Minutes Played", fill="Player") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+#Total number of field goals attempted each season
+fga.plot<- ggplot(kev.thad.data, aes(slugSeason, fgaTotals, fill=namePlayer)) + geom_col(position = position_dodge2(preserve = "single"))  + scale_fill_manual(values=c("orange2", "maroon4")) + labs(title = "Total Number of Field Goals Attemped", x = "Regular Season", y = "# of Field Goal Attempts", fill="Player") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+#Total number of assists each season
+ast.plot<- ggplot(kev.thad.data, aes(slugSeason, astTotals, fill=namePlayer)) + geom_col(position = position_dodge2(preserve = "single"))  + scale_fill_manual(values=c("orange2", "maroon4")) + labs(title = "Total Number of Assists", x = "Regular Season", y = "Total # of Assists", fill="Player") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+#plots side by side
+grid.arrange(fgm.plot, fga.plot, min.played, ast.plot, ncol = 2)
+```
+
+
+To go deeper, lets compare some basic statistics by referencing players_career() data. Unfortunately, this data contains missing information as seen in the graphics, but overall trends can still be seen. 
+
+- Durant and Young have similar percentages of field goals made
+- Durant seems to be making far more attempts at field goals overall throughout his career compared to Young
+- Durant plays far more minutes throughout his career compared to minutes played by Young
+- Durant contributes to far more assists throughout his career as well
+
+All of these figures can contribute to the large difference in contract compensation. Durant seems to be playing more, and scoring more compared to Young.
